@@ -7,6 +7,7 @@ public interface SmartHomeProtocol {
     // Messages sent to the ControlUnit Actor
     interface ControlUnitCommand {}
     record ValidPinEntered() implements ControlUnitCommand {}
+    record InvalidPinEntered() implements ControlUnitCommand {}
     record SensorTriggeredMsg(String sensorId) implements ControlUnitCommand {}
     record ArmSystemRequest() implements ControlUnitCommand {}
     record DelayTimeout() implements ControlUnitCommand {}

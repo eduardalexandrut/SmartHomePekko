@@ -1,8 +1,116 @@
 import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.AbstractActorWithTimers;
+import org.apache.pekko.actor.ActorRef;
 
-public class ControlUnit extends AbstractActor {
+import java.time.Duration;
+
+public class ControlUnit extends AbstractActorWithTimers {
+    private final ActorRef siren;
+    private static final Object DELAY_TIMER_KEY = "DelayTimerKey";
+
+    // Internal tick tokens for timeouts
+    private static class ExitDelayTimeout {}
+    private static class EntryDelayTimeout {}
+
+    public ControlUnit(ActorRef siren) {
+        this.siren = siren;
+    }
+
     @Override
     public Receive createReceive() {
-        return null;
+        return disarmedState();
     }
+
+    // Disarmed state:
+    // - Exit
+    // - SensorTriggered
+    private Receive disarmedState() {
+        return receiveBuilder()
+                .match(SmartHomeProtocol.ArmSystemRequest.class, this::onArmSystemRequest)
+                .match(SmartHomeProtocol.SensorTriggeredMsg.class, this::onSensorTriggeredDisarmed)
+                .build();
+    }
+
+    // Exit delay state:
+    // - SensorTriggered
+    // - ExitDelayTimeout
+    private Receive exitDelayState() {
+        return receiveBuilder()
+                .match(ExitDelayTimeout.class, this::onExitDelayTimeout)
+                .match(SmartHomeProtocol.SensorTriggeredMsg.class, this::onSensorTriggeredDisarmed)
+                .build();
+    }
+
+    // Armed state:
+    // - SensorTriggered
+    private Receive armedState() {
+        return receiveBuilder()
+                .match(SmartHomeProtocol.SensorTriggeredMsg.class, this::onSensorTriggeredArmed)
+                .build();
+    }
+
+    // Entry delay state:
+    // - ValidPinEntered
+    // - EntryDelayTimeout
+    private Receive entryDelayState() {
+        return receiveBuilder()
+                .match(SmartHomeProtocol.ValidPinEntered.class, this::onValidPinEnteredEntryState)
+                .match(EntryDelayTimeout.class, this::onEntryDelayTimeout)
+                .build();
+    }
+
+    // Allarm state:
+    // - ValidPinEntered
+    private Receive allarmState() {
+        return receiveBuilder()
+                .match(SmartHomeProtocol.ValidPinEntered.class, this::onValidPinEnteredAllarmState)
+                .match(SmartHomeProtocol.InvalidPinEntered.class, this::onInvalidPinEnteredAllarmState)
+                .build();
+    }
+
+    private void onInvalidPinEnteredAllarmState(SmartHomeProtocol.InvalidPinEntered invalidPinEntered) {
+        System.out.println("[ControlUnit] WARNING! Invalid pin entered: ");
+    }
+
+    private void onValidPinEnteredAllarmState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
+        System.out.println("[ControlUnit] Valid pin entered! Disarming allarm");
+        siren.tell(new SmartHomeProtocol.DeactivateSiren(), self());
+        getContext().become(disarmedState());
+    }
+
+    private void onEntryDelayTimeout(EntryDelayTimeout entryDelayTimeout) {
+        System.out.println("[ControlUnit] Entry delay timeout received. Setting up alarm!");
+        siren.tell(new SmartHomeProtocol.ActivateSiren(), this.self());
+        getContext().become(allarmState());
+    }
+
+    private void onSensorTriggeredArmed(SmartHomeProtocol.SensorTriggeredMsg sensorTriggeredMsg) {
+        System.out.println("[ControlUnit] WARNING! Intrusion detected by " + sensorTriggeredMsg.sensorId() +
+                " starting entry delay sequence");
+        getTimers().startSingleTimer(DELAY_TIMER_KEY, new EntryDelayTimeout(), Duration.ofSeconds(15));
+        getContext().become(entryDelayState());
+    }
+
+    private void onValidPinEnteredEntryState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
+        System.out.println("[ControlUnit] Valid pin entered! Disarming system");
+        getTimers().cancel(DELAY_TIMER_KEY);
+        getContext().become(disarmedState());
+    }
+
+    private void onExitDelayTimeout(ExitDelayTimeout exitDelayTimeout) {
+        System.out.println("[ControlUnit] Exit delay expired. System is now armed.");
+        getContext().become(armedState());
+    }
+
+
+    private void onSensorTriggeredDisarmed(SmartHomeProtocol.SensorTriggeredMsg sensorTriggeredMsg) {
+        System.out.println("[ControlUnit] Disarmed. Logging sensor trigger: " + sensorTriggeredMsg.sensorId());
+    }
+
+    private void onArmSystemRequest(Object o) {
+        System.out.println("[ControlUnit] Arming requested. Starting exit delay...");
+        getTimers().startSingleTimer(DELAY_TIMER_KEY, new ExitDelayTimeout(), Duration.ofSeconds(30));
+        getContext().become(exitDelayState());
+    }
+
 }
