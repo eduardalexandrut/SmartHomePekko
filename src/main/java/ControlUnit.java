@@ -1,6 +1,7 @@
 import org.apache.pekko.actor.AbstractActor;
 import org.apache.pekko.actor.AbstractActorWithTimers;
 import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.Props;
 
 import java.time.Duration;
 
@@ -11,6 +12,10 @@ public class ControlUnit extends AbstractActorWithTimers {
     // Internal tick tokens for timeouts
     private static class ExitDelayTimeout {}
     private static class EntryDelayTimeout {}
+
+    public static Props props(ActorRef siren) {
+        return Props.create(ControlUnit.class, () -> new ControlUnit(siren));
+    }
 
     public ControlUnit(ActorRef siren) {
         this.siren = siren;

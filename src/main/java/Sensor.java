@@ -1,5 +1,6 @@
 import org.apache.pekko.actor.AbstractActor;
 import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.Props;
 
 public class Sensor extends AbstractActor {
     private ActorRef controlUnitActor;
@@ -8,6 +9,10 @@ public class Sensor extends AbstractActor {
     public Sensor(ActorRef controlUnitActor, String sensorId) {
         this.controlUnitActor = controlUnitActor;
         this.sensorId = sensorId;
+    }
+
+    public static Props props(String name, ActorRef controlUnit) {
+        return Props.create(Sensor.class, () -> new Sensor(controlUnit, name));
     }
 
     @Override
