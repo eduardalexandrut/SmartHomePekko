@@ -1,3 +1,5 @@
+import java.util.Set;
+
 public interface SmartHomeProtocol {
 
     // Messages sent to the KeyPad Actor
@@ -9,7 +11,7 @@ public interface SmartHomeProtocol {
     record ValidPinEntered() implements ControlUnitCommand {}
     record InvalidPinEntered() implements ControlUnitCommand {}
     record SensorTriggeredMsg(String sensorId) implements ControlUnitCommand {}
-    record ArmSystemRequest() implements ControlUnitCommand {}
+    record ArmSystemRequest(Set<String> zonesToArm) implements ControlUnitCommand {}
     record DelayTimeout() implements ControlUnitCommand {}
 
     // Message sent to the Sensor actor

@@ -4,21 +4,37 @@ import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.Props;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class ControlUnit extends AbstractActorWithTimers {
     private final ActorRef siren;
     private static final Object DELAY_TIMER_KEY = "DelayTimerKey";
+    private final Map<String, String> sensorZoneMap;
+    private final Set<String> activeZones = new HashSet<>();
 
     // Internal tick tokens for timeouts
     private static class ExitDelayTimeout {}
     private static class EntryDelayTimeout {}
 
-    public static Props props(ActorRef siren) {
-        return Props.create(ControlUnit.class, () -> new ControlUnit(siren));
+    private final java.time.Duration exitDelay;
+    private final java.time.Duration entryDelay;
+
+    public static Props props(ActorRef siren, Duration exitDelay, Duration entryDelay, Map<String, String> sensorZoneMap) {
+        return Props.create(ControlUnit.class, () -> new ControlUnit(siren,  exitDelay, entryDelay, sensorZoneMap));
     }
 
-    public ControlUnit(ActorRef siren) {
+    public ControlUnit(ActorRef siren, Duration exitDelay, Duration entryDelay,  Map<String, String> sensorZoneMap) {
         this.siren = siren;
+        this.exitDelay = exitDelay;
+        this.entryDelay = entryDelay;
+        this.sensorZoneMap = new HashMap<>(sensorZoneMap);;
+    }
+
+    public void addSensorZone(String sensorId, String zoneId) {
+        sensorZoneMap.put(sensorId, zoneId);
     }
 
     @Override
@@ -90,10 +106,18 @@ public class ControlUnit extends AbstractActorWithTimers {
     }
 
     private void onSensorTriggeredArmed(SmartHomeProtocol.SensorTriggeredMsg sensorTriggeredMsg) {
-        System.out.println("[ControlUnit] WARNING! Intrusion detected by " + sensorTriggeredMsg.sensorId() +
-                " starting entry delay sequence");
-        getTimers().startSingleTimer(DELAY_TIMER_KEY, new EntryDelayTimeout(), Duration.ofSeconds(15));
-        getContext().become(entryDelayState());
+        // Look up which zone this sensor belongs to
+        String sensorZone = sensorZoneMap.get(sensorTriggeredMsg.sensorId());
+
+        // check if the zone is currently active
+        if (sensorZone != null && activeZones.contains(sensorZone)) {
+            System.out.println("[ControlUnit] WARNING! Intrusion detected Active zone breached: " + sensorZone);
+            // Trigger entry delay and swap state
+            getTimers().startSingleTimer(DELAY_TIMER_KEY, new EntryDelayTimeout(), entryDelay);
+            getContext().become(entryDelayState());
+        } else {
+            System.out.println("[ControlUnit] Ignored sensor " + sensorTriggeredMsg.sensorId() + " (Zone " + sensorZone + " is inactive).");
+        }
     }
 
     private void onValidPinEnteredEntryState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
@@ -112,9 +136,11 @@ public class ControlUnit extends AbstractActorWithTimers {
         System.out.println("[ControlUnit] Disarmed. Logging sensor trigger: " + sensorTriggeredMsg.sensorId());
     }
 
-    private void onArmSystemRequest(Object o) {
+    private void onArmSystemRequest(SmartHomeProtocol.ArmSystemRequest armSystemRequest) {
         System.out.println("[ControlUnit] Arming requested. Starting exit delay...");
-        getTimers().startSingleTimer(DELAY_TIMER_KEY, new ExitDelayTimeout(), Duration.ofSeconds(30));
+        this.activeZones.clear();
+        this.activeZones.addAll(armSystemRequest.zonesToArm());
+        getTimers().startSingleTimer(DELAY_TIMER_KEY, new ExitDelayTimeout(), exitDelay);
         getContext().become(exitDelayState());
     }
 
