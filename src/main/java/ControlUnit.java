@@ -80,20 +80,20 @@ public class ControlUnit extends AbstractActorWithTimers {
                 .build();
     }
 
-    // Allarm state:
+    // Alarm state:
     // - ValidPinEntered
-    private Receive allarmState() {
+    private Receive alarmState() {
         return receiveBuilder()
-                .match(SmartHomeProtocol.ValidPinEntered.class, this::onValidPinEnteredAllarmState)
-                .match(SmartHomeProtocol.InvalidPinEntered.class, this::onInvalidPinEnteredAllarmState)
+                .match(SmartHomeProtocol.ValidPinEntered.class, this::onValidPinEnteredAlarmState)
+                .match(SmartHomeProtocol.InvalidPinEntered.class, this::onInvalidPinEnteredAlarmState)
                 .build();
     }
 
-    private void onInvalidPinEnteredAllarmState(SmartHomeProtocol.InvalidPinEntered invalidPinEntered) {
+    private void onInvalidPinEnteredAlarmState(SmartHomeProtocol.InvalidPinEntered invalidPinEntered) {
         System.out.println("[ControlUnit] WARNING! Invalid pin entered: ");
     }
 
-    private void onValidPinEnteredAllarmState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
+    private void onValidPinEnteredAlarmState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
         System.out.println("[ControlUnit] Valid pin entered! Disarming allarm");
         siren.tell(new SmartHomeProtocol.DeactivateSiren(), self());
         getContext().become(disarmedState());
@@ -102,7 +102,7 @@ public class ControlUnit extends AbstractActorWithTimers {
     private void onEntryDelayTimeout(EntryDelayTimeout entryDelayTimeout) {
         System.out.println("[ControlUnit] Entry delay timeout received. Setting up alarm!");
         siren.tell(new SmartHomeProtocol.ActivateSiren(), this.self());
-        getContext().become(allarmState());
+        getContext().become(alarmState());
     }
 
     private void onSensorTriggeredArmed(SmartHomeProtocol.SensorTriggeredMsg sensorTriggeredMsg) {

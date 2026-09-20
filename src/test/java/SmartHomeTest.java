@@ -3,11 +3,9 @@ import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.testkit.TestKit;
 import org.apache.pekko.testkit.TestProbe;
 import org.apache.pekko.util.JavaDurationConverters;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.util.Map;
@@ -78,6 +76,7 @@ public class SmartHomeTest {
 
         final ActorRef controlUnit = system.actorOf(ControlUnit.props(sirenProbe.ref(), fastExitDelay, fastEntryDelay, testConfig));
         final ActorRef frontDoorSensor = system.actorOf(Sensor.props("FrontDoor", controlUnit));
+        final ActorRef keypad = system.actorOf(KeyPad.props(controlUnit));
 
         // Arm all zones
         Set<String> zonesToArm = Set.of("GroundFloor", "Perimeter", "UpperFloor");
@@ -88,8 +87,10 @@ public class SmartHomeTest {
         // Simulate intrusion
         frontDoorSensor.tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
 
-        // Simulate immediate disarm input
-        controlUnit.tell(new SmartHomeProtocol.ValidPinEntered(), kit.testActor());
+        // Allow time for ControlUnit to process the intrusion and enter entryDelayState
+        try { Thread.sleep(20); } catch (InterruptedException e) {}
+
+        keypad.tell(new SmartHomeProtocol.InsertPinMsg("1111"), kit.testActor());
 
         // Assert that the Siren NEVER received an ActivateSiren command
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(500, TimeUnit.MILLISECONDS);
