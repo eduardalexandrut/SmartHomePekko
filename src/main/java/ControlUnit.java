@@ -64,9 +64,11 @@ public class ControlUnit extends AbstractActorWithTimers {
 
     // Armed state:
     // - SensorTriggered
+    // - ValidPinEntered
     private Receive armedState() {
         return receiveBuilder()
                 .match(SmartHomeProtocol.SensorTriggeredMsg.class, this::onSensorTriggeredArmed)
+                .match(SmartHomeProtocol.ValidPinEntered.class, this::onValidPinEnteredArmedState)
                 .build();
     }
 
@@ -123,6 +125,11 @@ public class ControlUnit extends AbstractActorWithTimers {
     private void onValidPinEnteredEntryState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
         System.out.println("[ControlUnit] Valid pin entered! Disarming system");
         getTimers().cancel(DELAY_TIMER_KEY);
+        getContext().become(disarmedState());
+    }
+
+    private void onValidPinEnteredArmedState(SmartHomeProtocol.ValidPinEntered validPinEntered) {
+        System.out.println("[ControlUnit] Valid pin entered! Disarming system");
         getContext().become(disarmedState());
     }
 

@@ -19,7 +19,17 @@ public class KeyPad extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(SmartHomeProtocol.InsertPinMsg.class, this::onInsertPinMsg)
+                .match(SmartHomeProtocol.ArmWithPinMsg.class, this::onArmWithPinMsg)
                 .build();
+    }
+
+    // The system is armed only if the PIN is correct
+    private void onArmWithPinMsg(SmartHomeProtocol.ArmWithPinMsg armWithPinMsg) {
+        if (armWithPinMsg.pin().equals(CORRECT_PIN)) {
+            controlUnitActor.tell(new SmartHomeProtocol.ArmSystemRequest(armWithPinMsg.zonesToArm()), this.self());
+        } else {
+            controlUnitActor.tell(new SmartHomeProtocol.InvalidPinEntered(), this.self());
+        }
     }
 
     private void onInsertPinMsg(SmartHomeProtocol.InsertPinMsg insertPinMsg) {

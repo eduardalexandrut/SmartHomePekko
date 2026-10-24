@@ -5,6 +5,12 @@ public interface SmartHomeProtocol {
     // Messages sent to the KeyPad Actor
     interface KeyPadCommand {}
     record InsertPinMsg(String pin) implements KeyPadCommand {}
+    // Arming request typed on the keypad: the PIN is checked before the system is armed
+    record ArmWithPinMsg(String pin, Set<String> zonesToArm) implements KeyPadCommand {
+        public ArmWithPinMsg {
+            zonesToArm = Set.copyOf(zonesToArm); // messages must be immutable
+        }
+    }
 
     // Messages sent to the ControlUnit Actor
     interface ControlUnitCommand {}
