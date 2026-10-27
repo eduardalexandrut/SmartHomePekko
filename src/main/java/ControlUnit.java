@@ -33,9 +33,6 @@ public class ControlUnit extends AbstractActorWithTimers {
         this.sensorZoneMap = new HashMap<>(sensorZoneMap);;
     }
 
-    public void addSensorZone(String sensorId, String zoneId) {
-        sensorZoneMap.put(sensorId, zoneId);
-    }
 
     @Override
     public Receive createReceive() {

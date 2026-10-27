@@ -62,17 +62,16 @@ public class SmartHomeTest {
 
     @Test
     public void testSirenFiresOnTimeout() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
         // Arm the system (GroundFloor & Perimeter)
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter")), ActorRef.noSender());
 
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
         // Trigger a sensor in an active zone
-        env.livingRoomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.livingRoomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         // Assert the Siren fires after the fast entry delay expires
         FiniteDuration assertionTimeout = JavaDurationConverters.asFiniteDuration(Duration.ofMillis(200));
@@ -81,19 +80,18 @@ public class SmartHomeTest {
 
     @Test
     public void testSuccessfulDisarmDuringEntryDelay() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter", "UpperFloor")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter", "UpperFloor")), ActorRef.noSender());
 
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
         try { Thread.sleep(20); } catch (InterruptedException e) {}
 
         // Disarm via KeyPad
-        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), ActorRef.noSender());
 
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(500, TimeUnit.MILLISECONDS);
         sirenProbe.expectNoMessage(safetyWindow);
@@ -101,17 +99,16 @@ public class SmartHomeTest {
 
     @Test
     public void testPartialArmingIgnoresInactiveZones() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
         // Night Mode: Arm ONLY Perimeter and GroundFloor (UpperFloor left inactive)
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter", "GroundFloor")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter", "GroundFloor")), ActorRef.noSender());
 
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
         // Trigger user movement upstairs in the inactive zone
-        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(500, TimeUnit.MILLISECONDS);
         sirenProbe.expectNoMessage(safetyWindow);
@@ -120,11 +117,10 @@ public class SmartHomeTest {
     @Test
     @Description("When the system is in the Disarmed state, triggering any sensor does not trigger an entry delay or fire the siren")
     public void testSensorsIgnoredWhenDisarmed() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(500, TimeUnit.MILLISECONDS);
         sirenProbe.expectNoMessage(safetyWindow);
@@ -133,14 +129,13 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that sensors triggered while the exit delay countdown is active are ignored")
     public void testSensorsIgnoredDuringExitDelay() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), ActorRef.noSender());
 
         // Trigger sensor immediately during exit delay countdown
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         // Wait out the exit delay
         try { Thread.sleep(150); } catch (InterruptedException e) {}
@@ -153,21 +148,20 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that entering a valid PIN during the Alarm state deactivates the siren and disarms the system")
     public void testAlarmStopsWithValidPin() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {} // Wait out entry delay to reach Alarm state
 
         // Verify siren activated
         sirenProbe.expectMsgClass(SmartHomeProtocol.ActivateSiren.class);
 
         // Enter valid PIN via keypad
-        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), ActorRef.noSender());
 
         // Verify siren deactivated
         sirenProbe.expectMsgClass(SmartHomeProtocol.DeactivateSiren.class);
@@ -176,20 +170,19 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that entering an invalid PIN during the Alarm state does not stop the siren")
     public void testInvalidPinDuringAlarm() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
         sirenProbe.expectMsgClass(SmartHomeProtocol.ActivateSiren.class);
 
         // Enter invalid PIN via keypad
-        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("0000"), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("0000"), ActorRef.noSender());
 
         // Siren should keep going (expect no DeactivateSiren message)
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(200, TimeUnit.MILLISECONDS);
@@ -199,16 +192,15 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that full arming activates all zones, allowing sensors in upper floors to trigger the alarm")
     public void testFullArmingActivatesAllZones() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
         // Arm all zones including UpperFloor
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter", "UpperFloor")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("GroundFloor", "Perimeter", "UpperFloor")), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
         // Trigger upper floor sensor
-        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.bedroomSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         // Siren should fire after entry delay
         FiniteDuration assertionTimeout = JavaDurationConverters.asFiniteDuration(Duration.ofMillis(200));
@@ -218,15 +210,14 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that arming with a wrong PIN leaves the system disarmed")
     public void testArmingWithWrongPinIsRejected() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("0000", Set.of("Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("0000", Set.of("Perimeter")), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {}
 
         // The system is still disarmed, so the sensor is ignored
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(300, TimeUnit.MILLISECONDS);
         sirenProbe.expectNoMessage(safetyWindow);
@@ -235,19 +226,18 @@ public class SmartHomeTest {
     @Test
     @Description("Verifies that a valid PIN disarms the system while it is Armed")
     public void testDisarmFromArmedState() {
-        final TestKit kit = new TestKit(system);
         final TestProbe sirenProbe = new TestProbe(system);
         final TestEnvironment env = createEnvironment(sirenProbe);
 
-        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.ArmWithPinMsg("1111", Set.of("Perimeter")), ActorRef.noSender());
         try { Thread.sleep(150); } catch (InterruptedException e) {} // wait out the exit delay: now Armed
 
         // Disarm with the PIN (e.g. in the morning in night mode)
-        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), kit.testActor());
+        env.keypad().tell(new SmartHomeProtocol.InsertPinMsg("1111"), ActorRef.noSender());
         try { Thread.sleep(50); } catch (InterruptedException e) {}
 
         // The system is disarmed, so the sensor is ignored
-        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), kit.testActor());
+        env.frontDoorSensor().tell(new SmartHomeProtocol.OpenDoorMsg(), ActorRef.noSender());
 
         FiniteDuration safetyWindow = scala.concurrent.duration.Duration.create(300, TimeUnit.MILLISECONDS);
         sirenProbe.expectNoMessage(safetyWindow);
